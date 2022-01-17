@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.dto.MemberDto;
 import study.querydsl.dto.QMemberDto;
@@ -644,5 +645,65 @@ public class QuerydslBasicTest {
         return usernameEq(usernameCond).and(ageEq(ageCond));
     }
 
+    /**
+     * 수정, 삭제 배치 쿼리(벌크 연산)
+     *
+     */
 
+    @Test
+    /**
+     * bulk 연산자는 영속성 컨텍스트 무시하고 바로 DB에 바로 쿼리 뿌림
+     * DB 와 영속성 상태가 다름
+     * 영속성 상태
+     *
+     */
+    public void bulkUpdate() {
+        //==영속성==           ==DB==
+        //member1 = 10 -> member1
+        //member2 = 20 -> member2
+        //member3 = 30 -> member3
+        //member4 = 40 -> member4
+        long count = queryFactory
+                .update(member)
+                .set(member.username, "비회원")
+                .where(member.age.lt(28))
+                .execute();
+        em.flush();
+        em.clear();
+        //==영속성==       ==DB==
+        //member1 = 10 -> 비회원
+        //member2 = 20 -> 비회원
+        //member3 = 30 -> member3
+        //member4 = 40 -> member4
+
+        /**
+         * 현재 영속성과 DB는 다른상태
+         * 이럴경우 DB에서 비회원, 비회원을 가져오더라도
+         * 영속성 컨텍스트가 우선건을 가짐으로
+         * 전부 member1, 2, 3, 4를 가져옴
+         * DB에는 여전히 비회원, 비회원, member3, member4
+         */
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .fetch();
+        for (Member member1 : result) {
+            System.out.println("member1 = " + member1);
+        }
+    }
+    
+    @Test
+    public void bulkAdd() {
+        long count = queryFactory
+                .update(member)
+                .set(member.age, member.age.multiply(2))
+                .execute();
+    }
+
+    @Test
+    public void bulkDelete() {
+        queryFactory
+                .delete(member)
+                .where(member.age.gt(18))
+                .execute();
+    }
 }
