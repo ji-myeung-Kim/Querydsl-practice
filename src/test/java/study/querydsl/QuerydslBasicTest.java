@@ -1,5 +1,6 @@
 package study.querydsl;
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.ExpressionUtils;
 import com.querydsl.core.types.Projections;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.dto.MemberDto;
+import study.querydsl.dto.QMemberDto;
 import study.querydsl.dto.UserDto;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
@@ -46,7 +48,7 @@ public class QuerydslBasicTest {
         em.persist(teamA);
         em.persist(teamB);
 
-        Member member1 = new Member("member1", 6548, teamA);
+        Member member1 = new Member("member1", 10, teamA);
         Member member2 = new Member("member2", 20, teamA);
         Member member3 = new Member("member3", 30, teamB);
         Member member4 = new Member("member4", 40, teamB);
@@ -543,11 +545,16 @@ public class QuerydslBasicTest {
     }
 
     @Test//constructor 접근법
+    /**
+     * Constructor 형태는 Dto 담긴 속성보다 더 많은 값을 파라미터로 받으면
+     * 실행은 되나 RunTime Error 발생 compile오류 잡지 못함
+     */
     public void findDtoByConstructor() {
         List<UserDto> fetch = queryFactory
                 .select(Projections.constructor(UserDto.class,
                         member.username,
                         member.age))
+                //      member.id
                 .from(member)
                 .fetch();
 
@@ -556,5 +563,50 @@ public class QuerydslBasicTest {
         }
     }
 
+    /**
+     * construct형태와 달리 더 많은 값이 파라미터로 들어올 경우 compile오류가 남
+     * 그나마 위에보다 더 안전함 ctrl + P로 속성확인 가능
+     * Q파일 생성해야 한다는 단점이 있음
+     * @QueryProjection 넣어주어야 함
+     * MemberDto가 Querydsl의 의존성을 가지게됨 -> 라이브러리를 뺄 경우 코드들이 영향을 받음
+     * 아키텍처적임 고민을 해봐야 됨...
+     */
+    @Test
+    public void findDtoByQueryProjection() {
+        List<MemberDto> result = queryFactory
+                .select(new QMemberDto(member.username, member.age))
+                .from(member)
+                .fetch();
+
+        for (MemberDto memberDto : result) {
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+
+    @Test
+    public void dynamicQuery_BooleanBuilder() {
+        String usernameParam = "member1";
+        Integer ageParam = 10;
+
+       List<Member> result = searchMember1(usernameParam, ageParam);
+       assertThat(result.size()).isEqualTo(1);
+    }
+
+    private List<Member> searchMember1(String usernameCond, Integer ageCond) {
+
+        BooleanBuilder builder= new BooleanBuilder();
+        if(usernameCond != null) {
+            builder.and(member.username.eq(usernameCond));
+        }
+
+        if(ageCond != null) {
+            builder.and(member.age.eq(ageCond));
+        }
+
+        return queryFactory
+                .selectFrom(member)
+                .where(builder)
+                .fetch();
+    }
 
 }
