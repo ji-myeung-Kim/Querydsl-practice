@@ -78,7 +78,7 @@ public class QuerydslBasicTest {
     /**
      * runtimeerror가 뜨던 jpsl 과 달리 compiler 시점에서 Querydsl에러 잡음
      */
-    public void startQuerydsl(){
+        public void rydsl(){
 
         Member findMember = queryFactory
                 .select(member)
